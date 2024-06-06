@@ -103,6 +103,15 @@ public:
 	{
 		Bits[I] = Col;
 	}
+	void ToRBV(BYTE* Out)
+	{
+		for (int X = 0; X < 800; X++)
+			for (int Y = 0; Y < 600; Y++)
+			{
+				*Out = GetPixel(X, Y).Brightness();
+				Out++;
+			}
+	}
 };
 
 class Sexy::DDImage : public Sexy::MemoryImage

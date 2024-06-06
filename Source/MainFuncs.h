@@ -1,14 +1,18 @@
 #pragma once
+#include "Include/Compression.h"
 #include "PvZBadApple.h"
+
 #include <filesystem>
 #include <fstream>
 
-std::ifstream BadAppleHandle;
-byte* CURR_FRAME_DATA;
+int LastFrame = 0;
+BYTE* LastFrameCompressedData = nullptr;
 
+std::ifstream BadAppleHandle;
 // Load all generic background images
 void LoadImages(LawnApp* App)
 {
+	if (CURR_FRAME_DATA) delete CURR_FRAME_DATA;
 	CURR_FRAME_DATA = (byte*)operator new(FRAME_SIZE);
 	SAMPL = App->GetImage(std::string(BG_DIR) + "LawnDay", false);
 	LAWND = App->GetImage(std::string(BG_DIR) + "LawnDay", false);
@@ -45,61 +49,100 @@ void LoadImages(LawnApp* App)
 	DICT[7] = ZENN;
 }
 
+BYTE* LoadBadApple()
+{
+	if (COMPRESSED_DATA) delete COMPRESSED_DATA;
+	auto Size = std::filesystem::file_size(COMPRESSED_DIR);
+
+	COMPRESSED_DATA = (BYTE*)operator new(Size);
+	BadAppleHandle.seekg(0);
+	BadAppleHandle.read((char*)COMPRESSED_DATA, Size);
+	BadAppleHandle.close();
+	LastFrameCompressedData = COMPRESSED_DATA;
+
+	return COMPRESSED_DATA;
+}
+
 LawnApp* __stdcall LoadAssets()
 {
 	auto App = LawnApp::GetApp();
-	LoadImages(App);
 	bool Exists = std::filesystem::exists(COMPRESSED_DIR);
 	if (!Exists)
 	{
-		std::ofstream Handle(COMPRESSED_DIR, std::ios::out | std::ios::trunc);
-		if (!Handle.is_open()) throw "Unable to open handle to compress BadApple.";
+		std::cout << "Compressed Bad Apple doesn't exist! Compressing...\n";
+		COMPRESSED_DATA = (BYTE*)operator new(429496730);// 0.4 Gigabytes
+		CURR_FRAME_DATA = (BYTE*)operator new (FRAME_SIZE);
 
+		std::ofstream Handle(COMPRESSED_DIR, std::ios::out | std::ios::trunc);
+		if (!Handle.is_open()) std::cout << "Unable to open handle to compress BadApple.";
+
+		UINT TotalSize = 0;
+		BYTE* Data = COMPRESSED_DATA;
 		// Compress & load bad apple
 		for (int F = 1; F < FRAME_COUNT; F += FRAME_SKIP)
 		{
 			if (F > FRAME_COUNT) break;
 			auto IName = std::string(IMAGE_PPR) + FormatNumber(F);
 			auto Frame = App->GetImage(IName, false);
-			auto CFrame = CompressedImage::Compress(FRAME_SIZE, (BYTE*)Frame->Bits);
-
-			Handle.write((char*)CFrame, 4 + CFrame->Size);
-			std::cout << "Loaded Frame " << F / FRAME_SKIP << ": " << IName << '\n';
+			Frame->ToRBV(CURR_FRAME_DATA);// Output raw brightness values
 			
-			delete CFrame;
+			BYTE* End = VBCompression::Compress(FRAME_SIZE, CURR_FRAME_DATA, Data);
+			UINT FrameSize = (UINT)(End - Data);
+			
+			Data = End;
+			TotalSize += FrameSize;
 			Frame->~DDImage();
 		}
+
+		Handle.write((const char*)COMPRESSED_DATA, TotalSize);
 		Handle.close();
-		std::cout << "Frame Loading successful! Handle closed.";
 	}
+
+	LoadImages(App);
 	BadAppleHandle = std::ifstream(COMPRESSED_DIR, std::ios::in | std::ios::binary);
 	if (!BadAppleHandle.is_open()) throw "Unable to open handle to compress BadApple.";
+	LoadBadApple();
+
 	return App;
 }
 
-void ReadChunk(std::streampos Start, std::streamsize Size)
+void SeekNextFrame(bool DoDecompress = false)
 {
-	BadAppleHandle.seekg(Start);
-	BadAppleHandle.read((char*)CURR_FRAME_DATA, Size);
+	UINT PixelsJumped = 0;
+	BYTE* Curr = LastFrameCompressedData;
+	BYTE* CurrOut = CURR_FRAME_DATA;
+
+	while (PixelsJumped < FRAME_SIZE)
+	{
+		auto S = VBCompression::Segment::DecompressFrom(Curr);
+
+		PixelsJumped += S.RepeatCount;
+		Curr += S.CSize;
+
+		if (DoDecompress)
+		{
+			S.DecompressTo(CurrOut);
+			CurrOut += S.RepeatCount;
+		}
+	}
+
+	LastFrameCompressedData = Curr;
+	LastFrame++;
 }
 
-byte* GetFrameData(int Frame)
+void SeekFrameData(int Frame)
 {
-	ReadChunk(Frame * FRAME_SIZE, FRAME_SIZE);
-	return CURR_FRAME_DATA;
+	if (Frame == LastFrame) return;
+	if (Frame < LastFrame)
+	{
+		LastFrame = 0;
+		LastFrameCompressedData = COMPRESSED_DATA;
+	}
+
+	while (Frame != LastFrame)
+		SeekNextFrame(Frame == (LastFrame + 1));
 }
 
-byte* LoadBadApple()
-{
-	delete CURR_FRAME_DATA;
-	auto Size = std::filesystem::file_size(COMPRESSED_DIR);
-	CURR_FRAME_DATA = (BYTE*)operator new(Size);
-	BadAppleHandle.seekg(0);
-	BadAppleHandle.read((char*)CURR_FRAME_DATA, Size);
-	BadAppleHandle.close();
-}
-
-int LastFrame = -1;
 LawnApp* __stdcall DrawBG(Sexy::Graphics* G)
 {
 	Lawn* L = LawnApp::GetApp()->Lawn;
@@ -107,20 +150,15 @@ LawnApp* __stdcall DrawBG(Sexy::Graphics* G)
 
 	auto NormBG = DICT[L->Background];
 	auto AltBG = IDICT[L->Background];
-
 	float Timer = L->MainCounter / 100.0;
+
 	int CurrentFrameIndex = (int)(Timer * FPS / FRAME_SKIP) % FRAME_COUNT;
-	if (LastFrame != CurrentFrameIndex)
-	{
-		LastFrame = CurrentFrameIndex;
-		byte* FrameData = GetFrameData(CurrentFrameIndex);
-		for (int i = 0; i < FRAME_SIZE; i++)
-		{
-			float Alpha = FrameData[i] / 255.0;
-			SAMPL->SetPixel(i, BColor(NormBG->Bits[i], AltBG->Bits[i], Alpha));
-			SAMPL->BitsChangedCount++;
-		}
-	}
+	SeekFrameData(CurrentFrameIndex);
+
+	std::cout << "Frame: " << CurrentFrameIndex << "\n";
+	for (int i = 0; i < FRAME_SIZE; i++)
+		SAMPL->Bits[i] = BColor(NormBG->Bits[i], AltBG->Bits[i], CURR_FRAME_DATA[i] / 255.0);
+
 	DrawImage(G, SAMPL);
 	return LawnApp::GetApp();
 }

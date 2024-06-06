@@ -14,6 +14,7 @@ BOOL APIENTRY DllMain(
 
     // BGRA
     auto App = LawnApp::GetApp();
+    App->Loaded = false;
     std::cout << "Loaded: " << App->Loaded << "\n";
     if (App->Loaded)
         LoadAssets();
