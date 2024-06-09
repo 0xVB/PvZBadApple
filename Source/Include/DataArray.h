@@ -24,6 +24,28 @@ struct DataArray
 	unsigned int NextKey;
 	const char* Name;
 
+	DataArray(unsigned int MSize)
+	{
+		Block = (DataArrayItem<T>*)operator new(sizeof(DataArrayItem<T>) * Size);
+		memset(Block, 0, sizeof(DataArrayItem<T>) * Size);
+
+		MaxUsedCount = 0;
+		MaxSize = MSize;
+		FreeListHead = 0;
+		Size = 0;
+		NextKey = 1;
+		Name = "Luna Array!";
+	}
+
+	void ResetBlock(bool DoDelete = true)
+	{
+		if (DoDelete && Block)
+			delete Block;
+
+		Block = (DataArrayItem<T>*)operator new(sizeof(DataArrayItem<T>) * MaxSize);
+		memset(Block, 0, sizeof(DataArrayItem<T>) * MaxSize);
+	}
+
 	DWORD MaxAddress() { return (DWORD)(Block + MaxUsedCount); }
 	T* TryToGet(int ID)
 	{

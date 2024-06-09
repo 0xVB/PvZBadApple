@@ -11,7 +11,31 @@
 #include "GridItem.h"
 #include "DataArray.h"
 #include "Projectile.h"
+#include "SeedBank.h"
 
+
+void __declspec(naked) __stdcall LAWN_LOADBGIMG(void* L)
+{
+	__asm
+	{
+		push esi// Backup esi
+		mov esi, [esp + 0x8]
+		mov edx, 0x40A160
+		call edx
+
+		pop esi// Restore esi
+		ret 0x4// Pop params
+	}
+}
+void __declspec(naked) __stdcall LAWN_DESTROY(void* L)
+{
+	__asm
+	{
+		mov ecx, [esp + 0x4]
+		mov edx, 0x408690
+		call edx
+	}
+}
 
 class Lawn : public Sexy::UIElement, Sexy::ButtonListener
 {
@@ -135,6 +159,42 @@ public:
 	int ChocolateCollected;
 #pragma endregion
 
+	static Lawn* Clone(Lawn* L)
+	{
+		// Clone the old lawn
+		Lawn* NewLawn = (Lawn*)operator new(sizeof(Lawn));
+		memcpy(NewLawn, L, sizeof(Lawn));
+
+		// Separate the GameObjects and SeedBank
+		NewLawn->Projectiles.ResetBlock(false);
+		NewLawn->LawnMowers.ResetBlock(false);
+		NewLawn->GridItems.ResetBlock(false);
+		NewLawn->Zombies.ResetBlock(false);
+		NewLawn->Pickups.ResetBlock(false);
+		NewLawn->Plants.ResetBlock(false);
+
+		NewLawn->SeedBank = SeedBank::Clone(L->SeedBank);
+		NewLawn->SeedBank->ChangeLawn(NewLawn);
+
+		return NewLawn;
+	}
+
+	void DestroyClone()
+	{
+		delete Projectiles.Block;
+		delete LawnMowers.Block;
+		delete GridItems.Block;
+		delete Zombies.Block;
+		delete Pickups.Block;
+		delete Plants.Block;
+		delete SeedBank;
+		delete this;
+	}
+
+	void LoadBackground()
+	{
+		LAWN_LOADBGIMG(this);
+	}
 #pragma region Functions
 	GridItem* AddLadder(int Column, int Lane);
 	GridItem* AddCrater(int Column, int Lane, bool KillPlants = false);
@@ -152,5 +212,10 @@ public:
 
 	IVector2 PixelToGrid(int X, int Y);
 	IVector2 GridToPixel(int X, int Y);
+
+	~Lawn()
+	{
+		LAWN_DESTROY(this);
+	}
 #pragma endregion
 };

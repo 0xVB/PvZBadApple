@@ -114,10 +114,63 @@ public:
 	}
 };
 
+void __declspec(naked) __stdcall DDIMGCONSTRUCT(void* Image, void* DInterface)
+{
+	__asm
+	{
+		push edi
+
+		mov edi, [esp + 0xC]
+		push [esp + 0x8]
+		mov edx, 0x56B890
+		call edx
+
+		pop edi
+		ret 0x8
+	}
+}
+
+void __declspec(naked) __stdcall DDIMGSETSURFACE(void* Image, void* Surface)
+{
+	__asm
+	{
+		mov ecx, [esp + 0x4]
+		push [esp + 0x8]
+		mov edx, 0x56BB00
+		call edx
+		ret 0x8
+	}
+}
+
+__declspec(naked) UINT* __stdcall DDIMGGETBITS(void* Image)
+{
+	__asm
+	{
+		mov ecx, [esp + 0x4]
+		mov edx, 0x5712A0
+		call edx
+		ret 0x4
+	}
+}
+
+void __declspec(naked) __stdcall DDIMGDELSURF(void* Image)
+{
+	__asm
+	{
+		push esi
+		mov esi, [esp + 0x8]
+		mov edx, 0x56C480
+		call edx
+		pop esi
+		ret 0x4
+	}
+}
+
 class Sexy::DDImage : public Sexy::MemoryImage
 {
 private:
 	static const DWORD DESTRUCTOR = 0x56B980;
+	static const DWORD CONSTRUCTOR = 0x56B890;
 
 public:
 	DDInterface* DDInterface;
@@ -131,4 +184,24 @@ public:
 	int LockCount;
 	_DDSURFACEDESC LockedSurfaceDesc;
 	virtual ~DDImage();
+
+	DDImage(void* DInterface)
+	{
+		DDIMGCONSTRUCT(this, DInterface);
+	}
+
+	void SetSurface(IDirectDrawSurface* Surface)
+	{
+		DDIMGSETSURFACE(this, Surface);
+	}
+
+	UINT* GetBits()
+	{
+		return DDIMGGETBITS(this);
+	}
+
+	void DeleteSurface()
+	{
+		DDIMGDELSURF(this);
+	}
 };

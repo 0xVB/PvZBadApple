@@ -7,7 +7,7 @@ void __stdcall Hook(DWORD Address, void* Function)
 	VirtualProtect((LPVOID)Address, 5, PAGE_EXECUTE_READWRITE, &OldProt);
 
 	DWORD Offset = (DWORD)Function - Address - 5;// Relative offset
-	*(BYTE*)Address = 0xE8;// Set to call
+	*(BYTE*)Address = 0xE9;// Set to jmp
 	*(DWORD*)(Address + 1) = Offset;
 
 	DWORD Temp;

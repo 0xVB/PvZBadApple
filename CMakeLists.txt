@@ -12,7 +12,7 @@ endif()
 project ("PvZBadApple")
 
 # Add source to this project's executable.
-add_library (PvZBadApple SHARED "Source/PvZBadApple.cpp" "Source/PvZBadApple.h" "Source/Include/LawnApp.h" "Source/Include/Listeners.h" "Source/Include/Definitions.h" "Source/Include/Image.h" "Source/Include/Lawn.h" "Source/Include/UIElement.h" "Source/Include/Zombie.h" "Source/Include/Plant.h" "Source/Include/Pickup.h" "Source/Include/PottedPlant.h" "Source/Include/LawnMower.h" "Source/Include/GridItem.h" "Source/Include/DataArray.h" "Source/Include/Projectile.h" "Source/Consts.h" "Source/Hook.h" "Source/Utils.h" "Source/MainFuncs.h" "Source/Include/Compression.h")
+add_library (PvZBadApple SHARED "Source/PvZBadApple.cpp" "Source/PvZBadApple.h" "Source/Include/LawnApp.h" "Source/Include/Listeners.h" "Source/Include/Definitions.h" "Source/Include/Image.h" "Source/Include/Lawn.h" "Source/Include/UIElement.h" "Source/Include/Zombie.h" "Source/Include/Plant.h" "Source/Include/Pickup.h" "Source/Include/PottedPlant.h" "Source/Include/LawnMower.h" "Source/Include/GridItem.h" "Source/Include/DataArray.h" "Source/Include/Projectile.h" "Source/Consts.h" "Source/Hook.h" "Source/Utils.h" "Source/MainFuncs.h" "Source/Include/Compression.h" "Source/Include/SeedBank.h" "Source/Include/SeedPacket.h")
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET PvZBadApple PROPERTY CXX_STANDARD 20)

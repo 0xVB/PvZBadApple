@@ -728,6 +728,7 @@ class Pickup;
 class GridItem;
 class LawnMower;
 class Projectile;
+class SeedPacket;
 class PottedPlant;
 class GameObject
 {
